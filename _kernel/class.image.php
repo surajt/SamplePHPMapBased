@@ -1,0 +1,245 @@
+<?php
+class ImageResizer
+{
+    var $imgFile = "";
+    var $imgWidth = 0;
+    var $imgHeight = 0;
+    var $imgType = "";
+    var $imgAttr = "";
+    var $type = NULL;
+    var $_img = NULL;
+    var $_error = "";
+    
+    /**
+     * Constructor
+     *
+     * @param [String $imgFile] Image File Name
+     * @return ImageResizer (Class Object)
+     */
+    
+    function ImageResizer($imgFile = "")
+    {
+        if (!function_exists("imagecreate")) {
+            $this->_error = "Error: GD Library is not available.";
+            return false;
+        }
+        
+        $this->type = Array(
+            1 => 'gif',
+            2 => 'jpg',
+            3 => 'png',
+            4 => 'swf',
+            5 => 'psf',
+            6 => 'bmp',
+            7 => 'TIFF',
+            8 => 'tiff',
+            9 => 'jpc',
+            10 => 'jp2',
+            11 => 'jpx',
+            12 => 'jb2',
+            13 => 'swc',
+            14 => 'iff',
+            15 => 'wbmp',
+            16 => 'xbm',
+            17 => 'jpeg'
+        );
+        if (!empty($imgFile))
+            $this->setImage($imgFile);
+    }
+    /**
+     * Error occured while resizing the image.
+     *
+     * @return String
+     */
+    function error()
+    {
+        return $this->_error;
+    }
+    
+    /**
+     * Set image file name
+     *
+     * @param String $imgFile
+     * @return void
+     */
+    function setImage($imgFile)
+    {
+        $this->imgFile = $imgFile;
+        return $this->_createImage();
+    }
+    /**
+     *
+     * @return void
+     */
+    function close()
+    {
+        return @imagedestroy($this->_img);
+    }
+    /**
+     * Resize a image to given width and height and keep it's current width and height ratio
+     *
+     * @param Number $imgwidth
+     * @param Numnber $imgheight
+     * @param String $newfile
+     */
+    function resize_limitwh($imgwidth, $imgheight, $newfile = NULL)
+    {
+        list($width, $height, $type, $attr) = @getimagesize($this->imgFile);
+        if ($width > $imgwidth)
+            $image_per = floor(($imgwidth * 100) / $width);
+        
+        if (floor(($height * $image_per) / 100) > $imgheight)
+            $image_per = floor(($imgheight * 100) / $height);
+        
+        $this->resize_percentage($image_per, $newfile);
+        
+    }
+    /**
+     * Resize an image to given percentage.
+     *
+     * @param Number $percent
+     * @param String $newfile
+     * @return Boolean
+     */
+    function resize_percentage($percent = 100, $newfile = NULL)
+    {
+        $newWidth  = ($this->imgWidth * $percent) / 100;
+        $newHeight = ($this->imgHeight * $percent) / 100;
+        
+        
+        return $this->resize($newWidth, $newHeight, $newfile);
+    }
+    /**
+     * Resize an image to given X and Y percentage.
+     *
+     * @param Number $xpercent
+     * @param Number $ypercent
+     * @param String $newfile
+     * @return Boolean
+     */
+    function resize_xypercentage($xpercent = 100, $ypercent = 100, $newfile = NULL)
+    {
+        $newWidth  = ($this->imgWidth * $xpercent) / 100;
+        $newHeight = ($this->imgHeight * $ypercent) / 100;
+        return $this->resize($newWidth, $newHeight, $newfile);
+    }
+    
+    /**
+     * Resize an image to given width and height
+     *
+     * @param Number $width
+     * @param Number $height
+     * @param String $newfile
+     * @return Boolean
+     */
+    function resize($width, $height, $newfile = NULL)
+    {
+        if (empty($this->imgFile)) {
+            $this->_error = "File name is not initialised.";
+            return false;
+        }
+        if ($this->imgWidth <= 0 || $this->imgHeight <= 0) {
+            $this->_error = "Could not resize given image";
+            return false;
+        }
+        if ($width <= 0)
+            $width = $this->imgWidth;
+        if ($height <= 0)
+            $height = $this->imgHeight;
+        
+        
+        return $this->_resize($width, $height, $newfile);
+    }
+    
+    /**
+     * Get the image attributes
+     * @access Private
+     *         
+     */
+    function _getImageInfo()
+    {
+        @list($this->imgWidth, $this->imgHeight, $type, $this->imgAttr) = @getimagesize($this->imgFile);
+        $this->imgType = $this->type[$type];
+    }
+    
+    /**
+     * Create the image resource
+     * @access Private
+     * @return Boolean
+     */
+    function _createImage()
+    {
+        $this->_getImageInfo($imgFile);
+        if ($this->imgType == 'gif') {
+            $this->_img = @imagecreatefromgif($this->imgFile);
+        } elseif ($this->imgType == 'jpg' || $this->imgType == 'jpeg') {
+            $this->_img = @imagecreatefromjpeg($this->imgFile);
+        } elseif ($this->imgType == 'png') {
+            $this->_img = @imagecreatefrompng($this->imgFile);
+        }
+        if (!$this->_img || !@is_resource($this->_img)) {
+            $this->_error = "Error loading " . $this->imgFile;
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * Function is used to resize the image
+     *
+     * @access Private
+     * @param Number $width
+     * @param Number $height
+     * @param String $newfile
+     * @return Boolean
+     */
+    function _resize($width, $height, $newfile = NULL)
+    {
+        if (!function_exists("imagecreate")) {
+            $this->_error = "Error: GD Library is not available.";
+            return false;
+        }
+        
+        $newimg = @imagecreatetruecolor($width, $height);
+        
+        @imagecopyresampled($newimg, $this->_img, 0, 0, 0, 0, $width, $height, $this->imgWidth, $this->imgHeight);
+        if ($newfile === HAR_AUTO_NAME) {
+            if (@preg_match("/\..*+$/", @basename($this->imgFile), $matches))
+                $newfile = @substr_replace($this->imgFile, "_har", -@strlen($matches[0]), 0);
+        } elseif (!empty($newfile)) {
+            if (!@preg_match("/\..*+$/", @basename($newfile))) {
+                if (@preg_match("/\..*+$/", @basename($this->imgFile), $matches))
+                    $newfile = $newfile . $matches[0];
+            }
+        }
+        
+        if ($this->imgType == 'gif') {
+            $white = imagecolorallocate($newimg, 255, 255, 255);
+            imagefill($newimg, 0, 0, $white);
+            if (!empty($newfile)) {
+                
+                @imagegif($newimg, $newfile);
+            } else {
+                
+                @header("Content-type: image/gif");
+                @imagegif($newimg);
+            }
+        } elseif ($this->imgType == 'jpg') {
+            if (!empty($newfile))
+                @imagejpeg($newimg, $newfile, 100);
+            else {
+                @header("Content-type: image/jpeg");
+                @imagejpeg($newimg);
+            }
+        } elseif ($this->imgType == 'png') {
+            if (!empty($newfile))
+                @imagepng($newimg, $newfile);
+            else {
+                @header("Content-type: image/png");
+                @imagepng($newimg);
+            }
+        }
+        @imagedestroy($newimg);
+    }
+}
+?>
